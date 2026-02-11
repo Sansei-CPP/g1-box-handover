@@ -135,7 +135,7 @@ class UnitreeController:
             self.motion_command = [vx, vy, vyaw]
             self.motion_state = "walking"
         else:
-            self.loco_client.Move(vx, vy, vyaw, continuous_move=True)
+            self.loco_client.Move(vx, vy, vyaw, continous_move=True)
     
 
     def LowStateHandler(self, msg: LowState_):
