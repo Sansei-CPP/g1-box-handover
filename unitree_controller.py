@@ -122,6 +122,12 @@ class UnitreeController:
         else:
             self.loco_client.LockStanding()
 
+    def StartMoving(self):
+        if not self.real:
+            self.motion_state = "walking"
+        else:
+            self.loco_client.Start()
+
 
     def Move(self, vx: float, vy: float, vyaw: float):
         

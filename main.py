@@ -32,9 +32,11 @@ if __name__ == '__main__':
         time.sleep(3)
 
         input("[INPUT]: Press Enter to start walking...")
+        controller.StartMoving()
+        time.sleep(1)
         controller.Move(0.5, 0.0, 0.0)
 
-        time.sleep(5)
+        time.sleep(1)
 
         controller.Move(0.0, 0.0, 0.0)
 
