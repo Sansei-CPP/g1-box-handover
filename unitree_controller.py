@@ -16,7 +16,11 @@ from unitree_sdk2py.g1.loco.g1_loco_client import LocoClient
 
 import numpy as np
 
-from move_sim import G1Config, InferenceEnv
+try:
+    from move_sim import InferenceEnv, G1Config
+    MOVE_SIM_AVAILABLE = True
+except ImportError:
+    MOVE_SIM_AVAILABLE = False
 
 G1_NUM_MOTOR = 29
 
@@ -41,8 +45,12 @@ class UnitreeController:
         self.crc = CRC()
         self.real = real
 
-        self.config = G1Config()
-        self.control_dt_ = self.config.sim.dt
+        if MOVE_SIM_AVAILABLE:
+            self.config = G1Config()
+            self.control_dt_ = self.config.sim.dt
+        else:
+            self.config = None
+            self.control_dt_ = 0.02  # 50 Hz default
 
         self.motion_command = [0.0, 0.0, 0.0]
 
@@ -65,6 +73,8 @@ class UnitreeController:
         #         status, result = self.msc.CheckMode()
         #         time.sleep(1)
 
+        self.low_cmd = unitree_hg_msg_dds__LowCmd_()  
+
         # create publisher #
         if not self.real:
             self.lowcmd_publisher_ = ChannelPublisher("rt/lowcmd", LowCmd_)
@@ -72,16 +82,12 @@ class UnitreeController:
 
             self.actions = np.zeros(12)
             self.env = InferenceEnv(self.config)
-            self.low_cmd = unitree_hg_msg_dds__LowCmd_()  
 
             self.motion_state = "damp"
 
         else:
             self.loco_client = LocoClient()
             self.loco_client.Init()
-
-            self.lowcmd_publisher_ = ChannelPublisher("rt/arm_sdk", LowCmd_)
-            self.lowcmd_publisher_.Init()
 
         # create subscriber # 
         self.lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_)
@@ -105,6 +111,10 @@ class UnitreeController:
 
             if self.update_mode_machine_ == True:
                 self.lowCmdWriteThreadPtr.Start()
+
+        else:
+            pass  # Real mode uses LocoClient directly, no recurrent thread needed
+
 
     def Damp(self):
 
@@ -183,12 +193,6 @@ class UnitreeController:
                 self.low_cmd.motor_cmd[i].kp = self.config.control.Kp[i]
                 self.low_cmd.motor_cmd[i].kd = self.config.control.Kd[i]    
                 self.low_cmd.motor_cmd[i].tau = 0. 
-            for i in range(15, G1_NUM_MOTOR):
-                self.low_cmd.motor_cmd[i].q = self.config.init_state.default_joint_angles[i]
-                self.low_cmd.motor_cmd[i].dq = 0. 
-                self.low_cmd.motor_cmd[i].kp = self.config.control.Kp[i]
-                self.low_cmd.motor_cmd[i].kd = self.config.control.Kd[i]    
-                self.low_cmd.motor_cmd[i].tau = 0.
 
             self.counter_ += 1
 
@@ -204,3 +208,9 @@ class UnitreeController:
 
         self.low_cmd.crc = self.crc.Crc(self.low_cmd)
         self.lowcmd_publisher_.Write(self.low_cmd)
+
+
+    def Stop(self):
+        """Clean shutdown."""
+        # if self.real:
+            # self.loco_client.Damp()

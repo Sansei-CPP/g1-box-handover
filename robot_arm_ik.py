@@ -8,8 +8,8 @@ from pinocchio.visualize import MeshcatVisualizer
 import os
 import sys
 import pickle
-import logging_mp
-logger_mp = logging_mp.get_logger(__name__)
+import logging
+logger_mp = logging.getLogger(__name__)
 
 # parent2_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # sys.path.append(parent2_dir)
@@ -296,50 +296,98 @@ class G1_29_ArmIK:
         
 
 if __name__ == "__main__":
-    arm_ik = G1_29_ArmIK(Unit_Test = True, Visualization = True)
+    import argparse
+    from unitree_sdk2py.core.channel import ChannelFactoryInitialize
+    from robot_arm import G1_29_ArmController
 
-    # initial positon
-    L_tf_target = pin.SE3(
-        pin.Quaternion(1, 0, 0, 0),
-        np.array([0.25, +0.25, 0.1]),
+    parser = argparse.ArgumentParser(description="G1 Arm IK demo — real robot or sim")
+    parser.add_argument("--real", action="store_true", help="Run on real G1 robot")
+    parser.add_argument("--network", type=str, default="lo", help="Network interface (e.g. enp3s0)")
+    parser.add_argument("--vis", action="store_true", help="Enable Meshcat visualization")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
+    # ── Initialize DDS channel ──────────────────────────────────
+    # 0 = real robot, 1 = simulation
+    if args.real:
+        ChannelFactoryInitialize(0, args.network)
+    else:
+        ChannelFactoryInitialize(1)
+
+    # ── Build IK solver ─────────────────────────────────────────
+    arm_ik = G1_29_ArmIK(Unit_Test=True, Visualization=args.vis)
+
+    # ── Initialize arm controller ───────────────────────────────
+    # motion_mode=True lets arm commands coexist with locomotion
+    arm = G1_29_ArmController(
+        motion_mode=True,
+        simulation_mode=(not args.real),
     )
 
-    R_tf_target = pin.SE3(
+    # ── Phase 1 target poses ──────────────────────────────────────
+    L_tf_target_1 = pin.SE3(
         pin.Quaternion(1, 0, 0, 0),
-        np.array([0.25, -0.25, 0.1]),
+        np.array([0.45, +0.25, 0.2]),
+    )
+    R_tf_target_1 = pin.SE3(
+        pin.Quaternion(1, 0, 0, 0),
+        np.array([0.45, -0.25, 0.2]),
     )
 
-    rotation_speed = 0.005
-    noise_amplitude_translation = 0.001
-    noise_amplitude_rotation = 0.01
+    # ── Phase 2 target poses ──────────────────────────────────────
+    L_tf_target_2 = pin.SE3(
+        pin.Quaternion(1, 0, 0, 0),
+        np.array([0.2, +0.15, 0.2]),
+    )
+    R_tf_target_2 = pin.SE3(
+        pin.Quaternion(1, 0, 0, 0),
+        np.array([0.2, -0.15, 0.2]),
+    )
 
-    user_input = input("Please enter the start signal (enter 's' to start the subsequent program):\n")
-    if user_input.lower() == 's':
-        step = 0
+    user_input = input("Press 's' + Enter to start: ")
+    if user_input.lower() != 's':
+        print("Exiting.")
+        sys.exit(0)
+
+    # Gradually ramp up arm velocity for safety
+    arm.speed_gradual_max()
+
+    start_time = time.time()
+
+    try:
         while True:
-            # Apply rotation noise with bias towards y and z axes
-            rotation_noise_L = pin.Quaternion(
-                np.cos(np.random.normal(0, noise_amplitude_rotation) / 2),0,np.random.normal(0, noise_amplitude_rotation / 2),0).normalized()  # y bias
+            elapsed = time.time() - start_time
 
-            rotation_noise_R = pin.Quaternion(
-                np.cos(np.random.normal(0, noise_amplitude_rotation) / 2),0,0,np.random.normal(0, noise_amplitude_rotation / 2)).normalized()  # z bias
-            
-            if step <= 120:
-                angle = rotation_speed * step
-                L_tf_target.rotation = (rotation_noise_L * pin.Quaternion(np.cos(angle / 2), 0, np.sin(angle / 2), 0)).toRotationMatrix()  # y axis
-                R_tf_target.rotation = (rotation_noise_R * pin.Quaternion(np.cos(angle / 2), 0, 0, np.sin(angle / 2))).toRotationMatrix()  # z axis
-                L_tf_target.translation += (np.array([0.001,  0.001, 0.001]) + np.random.normal(0, noise_amplitude_translation, 3))
-                R_tf_target.translation += (np.array([0.001, -0.001, 0.001]) + np.random.normal(0, noise_amplitude_translation, 3))
+            # Phase 1: first 3 seconds → initial position
+            # Phase 2: after 3 seconds → second position
+            if elapsed < 3.0:
+                L_tf = L_tf_target_1
+                R_tf = R_tf_target_1
             else:
-                angle = rotation_speed * (240 - step)
-                L_tf_target.rotation = (rotation_noise_L * pin.Quaternion(np.cos(angle / 2), 0, np.sin(angle / 2), 0)).toRotationMatrix()  # y axis
-                R_tf_target.rotation = (rotation_noise_R * pin.Quaternion(np.cos(angle / 2), 0, 0, np.sin(angle / 2))).toRotationMatrix()  # z axis
-                L_tf_target.translation -= (np.array([0.001,  0.001, 0.001]) + np.random.normal(0, noise_amplitude_translation, 3))
-                R_tf_target.translation -= (np.array([0.001, -0.001, 0.001]) + np.random.normal(0, noise_amplitude_translation, 3))
+                L_tf = L_tf_target_2
+                R_tf = R_tf_target_2
 
-            arm_ik.solve_ik(L_tf_target.homogeneous, R_tf_target.homogeneous)
+            # Read current arm motor state for better IK convergence
+            current_lr_arm_q  = arm.get_current_dual_arm_q()
+            current_lr_arm_dq = arm.get_current_dual_arm_dq()
 
-            step += 1
-            if step > 240:
-                step = 0
-            time.sleep(0.1)
+            sol_q, sol_tauff = arm_ik.solve_ik(
+                L_tf.homogeneous,
+                R_tf.homogeneous,
+                current_lr_arm_q,
+                current_lr_arm_dq,
+            )
+
+            # Send IK solution to robot arms
+            if sol_q is not None:
+                arm.ctrl_dual_arm(sol_q, sol_tauff)
+
+            time.sleep(0.01)
+
+    except KeyboardInterrupt:
+        print("\n[INFO]: Interrupted.")
+    finally:
+        print("[INFO]: Returning arms to home position...")
+        arm.ctrl_dual_arm_go_home()
+        print("[INFO]: Done.")
