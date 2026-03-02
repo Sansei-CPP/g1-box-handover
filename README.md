@@ -6,7 +6,7 @@ Autonomous system for the **Unitree G1 humanoid robot** that detects a box using
 
 ![G1 robot with box](media/g1-box.jpeg)
 
-https://github.com/user-attachments/assets/g1_box_handover.mp4
+[▶ Watch demo video](media/g1_box_handover.mp4)
 
 ## The Competition
 
