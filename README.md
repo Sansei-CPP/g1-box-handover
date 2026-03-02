@@ -2,6 +2,34 @@
 
 Autonomous system for the **Unitree G1 humanoid robot** that detects a box using computer vision, walks to it, grabs it with both arms, then finds a nearby human and hands the box over.
 
+## Demo
+
+![G1 robot with box](media/g1-box.jpeg)
+
+https://github.com/user-attachments/assets/g1_box_handover.mp4
+
+## The Competition
+
+This project was built for **Hackathon 2** — a humanoid robotics championship where each team must program a Unitree G1 to perform a **fully autonomous box pickup and handover** task.
+
+### Setup & Equipment
+
+- **Competition zone:** 4 × 4 meters per team
+- **Robot:** Unitree G1 humanoid (standard hardware only)
+- **Box:** Standardized 24 × 24 × 20 cm
+- **Table:** One table placed inside the zone
+- **Safety:** Crane system to prevent falls (hardware protection only)
+
+### Task Rules
+
+1. Robot starts from an initial position
+2. Autonomously walk within the zone and **detect a box** on the table
+3. **Approach** the table and **grasp** the box using standard dummy hands
+4. **Carry** the box back to the initial position
+5. **Hand over** the box to a team member
+
+> **No human intervention, teleoperation, or manual correction is allowed once a run begins.** Only standard Unitree G1 hardware may be used — no custom or dexterous hands.
+
 ## Architecture
 
 ```
