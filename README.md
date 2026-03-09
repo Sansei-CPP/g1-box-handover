@@ -39,12 +39,12 @@ G1 Robot (192.168.123.164)                     Local Machine (192.168.123.222)
 │  RealSense Camera            │              │  camera_gpu.py / vision_control.py   │
 │    ├─ RGB  (/dev/video4)     │   UDP :5600  │    ├─ Receives RGB + Depth           │
 │    │   → gst_stream.sh ──────│──── RTP ────►│    ├─ Runs YOLO (box + human + pose) │
-│    │                         │              │    └─ Publishes JSON via UDP :9999    │
+│    │                         │              │    └─ Publishes JSON via UDP :9999   │
 │    └─ Depth                  │   TCP :5601  │                                      │
 │        → depth_tcp.py ───────│──── TCP ────►│  task.py (state machine)             │
-│                              │              │    ├─ Listens UDP :9999               │
-│                              │              │    ├─ Controls locomotion              │
-│                              │              │    └─ Controls arms via IK            │
+│                              │              │    ├─ Listens UDP :9999              │
+│                              │              │    ├─ Controls locomotion            │
+│                              │              │    └─ Controls arms via IK           │
 └──────────────────────────────┘              └──────────────────────────────────────┘
 ```
 
